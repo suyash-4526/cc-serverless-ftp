@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple File Transfer</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .container { border: 1px solid #ccc; padding: 30px; width: 400px; margin: 0 auto; border-radius: 10px; box-shadow: 2px 2px 10px #eee; }
+        button { padding: 10px 20px; margin-top: 15px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background-color: #0056b3; }
+        #status { margin-top: 20px; font-weight: bold; color: #333; }
+        #downloadArea { margin-top: 20px; display: none; padding: 15px; background: #e9ecef; border-radius: 5px; }
+        a { color: #007bff; text-decoration: none; word-wrap: break-word;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Upload a File</h2>
+    <input type="file" id="fileInput" />
+    <br>
+    <button onclick="uploadFile()">Generate Download Link</button>
+
+    <div id="status"></div>
+
+    <div id="downloadArea">
+        <p>✅ Upload Successful! Here is your link:</p>
+        <a id="downloadLink" href="#" target="_blank">Download Link Will Appear Here</a>
+    </div>
+</div>
+
+<script>
+    // Paste your exact API Gateway Invoke URL here (without a trailing slash)
+    const API_URL = "https://795058qcki.execute-api.ap-south-1.amazonaws.com"; 
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        const downloadArea = document.getElementById('downloadArea');
+        const downloadLink = document.getElementById('downloadLink');
+
+        if (fileInput.files.length === 0) {
+            alert("Please select a file first.");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        status.innerText = "Step 1: Requesting secure upload link from AWS...";
+        downloadArea.style.display = "none";
+
+        try {
+            // 1. Get the S3 Pre-signed Upload URL from your Lambda function
+            const response = await fetch(`${API_URL}/upload-url?filename=${file.name}`);
+            const data = await response.json();
+            
+            status.innerText = "Step 2: Uploading file directly to S3...";
+
+            // 2. Upload the file directly to S3 using the pre-signed URL (Headers removed to fix CORS signature mismatch)
+            const uploadResponse = await fetch(data.uploadUrl, {
+                method: 'PUT',
+                body: file
+            });
+
+            if (uploadResponse.ok) {
+                status.innerText = "";
+                // 3. Show the download link
+                downloadArea.style.display = "block";
+                const fileDownloadUrl = `${API_URL}/download-url?filename=${file.name}`;
+                downloadLink.href = fileDownloadUrl;
+                downloadLink.innerText = fileDownloadUrl;
+            } else {
+                status.innerText = "Upload failed. Please try again.";
+            }
+
+        } catch (error) {
+            console.error(error);
+            status.innerText = "An error occurred. Check the browser console.";
+        }
+    }
+</script>
+
+</body>
+</html>
