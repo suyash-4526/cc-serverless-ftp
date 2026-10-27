@@ -31,7 +31,6 @@
 </div>
 
 <script>
-    // Paste your exact API Gateway Invoke URL here (without a trailing slash)
     const API_URL = "https://795058qcki.execute-api.ap-south-1.amazonaws.com"; 
 
     async function uploadFile() {
@@ -46,31 +45,36 @@
         }
 
         const file = fileInput.files[0];
+        const fileType = file.type || 'application/octet-stream';
+        
         status.innerText = "Step 1: Requesting secure upload link from AWS...";
         downloadArea.style.display = "none";
 
         try {
-            // 1. Get the S3 Pre-signed Upload URL from your Lambda function
-            const response = await fetch(`${API_URL}/upload-url?filename=${file.name}`);
+            // 1. Pass both filename and contentType to Lambda
+            const response = await fetch(`${API_URL}/upload-url?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(fileType)}`);
             const data = await response.json();
             
             status.innerText = "Step 2: Uploading file directly to S3...";
 
-            // 2. Upload the file directly to S3 using the pre-signed URL (Headers removed to fix CORS signature mismatch)
+            // 2. Upload the file and include the EXACT same Content-Type in the headers
             const uploadResponse = await fetch(data.uploadUrl, {
                 method: 'PUT',
-                body: file
+                body: file,
+                headers: {
+                    'Content-Type': fileType
+                }
             });
 
             if (uploadResponse.ok) {
                 status.innerText = "";
                 // 3. Show the download link
                 downloadArea.style.display = "block";
-                const fileDownloadUrl = `${API_URL}/download-url?filename=${file.name}`;
+                const fileDownloadUrl = `${API_URL}/download-url?filename=${encodeURIComponent(file.name)}`;
                 downloadLink.href = fileDownloadUrl;
                 downloadLink.innerText = fileDownloadUrl;
             } else {
-                status.innerText = "Upload failed. Please try again.";
+                status.innerText = `Upload failed. HTTP Status: ${uploadResponse.status}`;
             }
 
         } catch (error) {
